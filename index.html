@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Traffic Racer</title>
+
+<style>
+*{box-sizing:border-box}
+
+html,body{
+margin:0;
+width:100%;
+height:100%;
+overflow:hidden;
+background:#111;
+font-family:Arial,sans-serif
+}
+
+#game{
+width:100%;
+height:100%;
+position:relative
+}
+
+canvas{
+position:absolute;
+inset:0;
+width:100%;
+height:100%
+}
+
+#menu,#over{
+position:absolute;
+inset:0;
+display:flex;
+align-items:center;
+justify-content:center;
+background:linear-gradient(#202428,#08090a);
+z-index:10
+}
+
+.box{
+width:88%;
+max-width:400px;
+padding:30px;
+border-radius:28px;
+background:#191c20;
+border:1px solid #555;
+color:white;
+text-align:center
+}
+
+h1{
+font-size:42px;
+font-style:italic;
+margin:0 0 8px
+}
+
+h2{
+font-size:38px;
+margin:0 0 20px;
+color:#ff927b
+}
+
+p{
+color:#aaa
+}
+
+.topScore{
+margin:20px 0 25px;
+padding:15px;
+border-radius:16px;
+background:#101215;
+border:1px solid #3f4448
+}
+
+.topScore small{
+display:block;
+color:#999;
+font-size:12px;
+font-weight:bold;
+letter-spacing:1px
+}
+
+.topScore b{
+display:block;
+font-size:30px;
+margin-top:4px
+}
+
+button{
+width:100%;
+height:58px;
+margin-top:12px;
+border:0;
+border-radius:17px;
+font-size:18px;
+font-weight:bold;
+background:#333;
+color:white
+}
+
+button:active{
+transform:scale(.97)
+}
+
+.primary{
+background:white;
+color:#111
+}
+
+#hud{
+position:absolute;
+top:12px;
+left:50%;
+transform:translateX(-50%);
+width:92%;
+max-width:520px;
+display:none;
+justify-content:space-between;
+z-index:3;
+color:white
+}
+
+.h{
+background:#000b;
+padding:8px 12px;
+border-radius:12px;
+text-align:center
+}
+
+.h small{
+display:block;
+color:#aaa;
+font-size:10px
+}
+
+.h b{
+font-size:16px
+}
+
+#pause{
+position:absolute;
+right:15px;
+top:75px;
+z-index:4;
+width:50px;
+height:50px;
+border-radius:50%;
+padding:0;
+display:none
+}
+
+#controls{
+position:absolute;
+bottom:20px;
+left:0;
+right:0;
+display:none;
+justify-content:space-between;
+padding:0 25px;
+z-index:4
+}
+
+.ctrl{
+width:82px;
+height:82px;
+border-radius:50%;
+background:#000a;
+color:white;
+font-size:42px;
+padding:0
+}
+
+.stat{
+display:flex;
+justify-content:space-between;
+padding:13px 0;
+border-bottom:1px solid #333;
+font-size:17px
+}
+
+.stat b{
+font-size:18px
+}
+
+.newRecord{
+margin:18px 0 5px;
+color:#ffd15c;
+font-weight:900;
+font-size:17px
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+
+<div class="h">
+<small>SKOR</small>
+<b id="score">0</b>
+</div>
+
+<div class="h">
+<small>MESAFE</small>
+<b id="dist">0 m</b>
+</div>
+
+<div class="h">
+<small>HIZ</small>
+<b id="speed">45</b>
+</div>
+
+</div>
+
+<button id="pause">Ⅱ</button>
+
+<div id="controls">
+
+<button class="ctrl" id="left">‹</button>
+<button class="ctrl" id="right">›</button>
+
+</div>
+
+
+<!-- ANA MENÜ -->
+
+<div id="menu">
+
+<div class="box">
+
+<h1>TRAFFIC RACER</h1>
+
+<p>FIAT LINEA EDITION</p>
+
+<div class="topScore">
+
+<small>TOP SKOR</small>
+
+<b id="menuTopScore">0</b>
+
+</div>
+
+<button
+class="primary"
+id="play"
+onclick="startGame()"
+>
+OYNA
+</button>
+
+</div>
+
+</div>
+
+
+<!-- KAZA -->
+
+<div id="over" style="display:none">
+
+<div class="box">
+
+<h2>KAZA!</h2>
+
+<div class="stat">
+<span>SKOR</span>
+<b id="final">0</b>
+</div>
+
+<div class="stat">
+<span>TOP SKOR</span>
+<b id="finalTopScore">0</b>
+</div>
+
+<div
+id="newRecord"
+class="newRecord"
+style="display:none"
+>
+🏆 YENİ TOP SKOR!
+</div>
+
+<button
+class="primary"
+onclick="startGame()"
+>
+TEKRAR OYNA
+</button>
+
+<button onclick="goHome()">
+ANA MENÜ
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+var canvas=document.getElementById("canvas");
+var ctx=canvas.getContext("2d");
+
+var W=0;
+var H=0;
+
+var lane=1;
+var score=0;
+var distance=0;
+var speed=45;
+
+var cars=[];
+
+var running=false;
+var paused=false;
+
+var last=0;
+var spawn=0;
+var animationId=0;
+
+
+/* =========================
+   TOP SKOR
+========================= */
+
+function getTopScore(){
+
+try{
+
+return Number(
+localStorage.getItem("trafficRacerTopScore") || "0"
+);
+
+}catch(e){
+
+return 0;
+
+}
+
+}
+
+
+function saveTopScore(value){
+
+try{
+
+localStorage.setItem(
+"trafficRacerTopScore",
+String(value)
+);
+
+}catch(e){}
+
+}
+
+
+function updateTopScore(){
+
+document.getElementById(
+"menuTopScore"
+).textContent=getTopScore();
+
+}
+
+
+updateTopScore();
+
+
+/* =========================
+   EKRAN
+========================= */
+
+function resize(){
+
+W=window.innerWidth;
+H=window.innerHeight;
+
+canvas.width=W;
+canvas.height=H;
+
+}
+
+window.addEventListener(
+"resize",
+resize
+);
+
+resize();
+
+
+/* =========================
+   YOL
+========================= */
+
+function roadWidth(){
+
+return Math.min(
+W*.92,
+520
+);
+
+}
+
+
+function laneX(n){
+
+var r=roadWidth();
+
+var l=(W-r)/2;
+
+return l+r*(n+.5)/4;
+
+}
+
+
+function drawRoad(){
+
+var r=roadWidth();
+
+var l=(W-r)/2;
+
+var horizon=H*.18;
+
+
+/* Çevre */
+
+ctx.fillStyle="#273029";
+
+ctx.fillRect(
+0,
+0,
+W,
+H
+);
+
+
+/* Yol */
+
+ctx.fillStyle="#383d40";
+
+ctx.fillRect(
+l,
+horizon,
+r,
+H-horizon
+);
+
+
+/* Kenarlar */
+
+ctx.strokeStyle="#777";
+
+ctx.lineWidth=3;
+
+ctx.beginPath();
+
+ctx.moveTo(
+l,
+horizon
+);
+
+ctx.lineTo(
+l,
+H
+);
+
+ctx.moveTo(
+l+r,
+horizon
+);
+
+ctx.lineTo(
+l+r,
+H
+);
+
+ctx.stroke();
+
+
+/* Şerit çizgileri */
+
+ctx.strokeStyle="white";
+
+ctx.lineWidth=3;
+
+var offset=(Date.now()/6)%100;
+
+for(
+var i=1;
+i<4;
+i++
+){
+
+var x=l+r*i/4;
+
+for(
+var y=horizon-80+offset;
+y<H;
+y+=100
+){
+
+ctx.beginPath();
+
+ctx.moveTo(
+x,
+y
+);
+
+ctx.lineTo(
+x,
+y+45
+);
+
+ctx.stroke();
+
+}
+
+}
+
+}
+
+
+/* =========================
+   OYUNCU
+========================= */
+
+function drawPlayer(){
+
+var x=laneX(lane);
+
+var y=H-125;
+
+var w=Math.min(
+90,
+roadWidth()/5
+);
+
+var h=115;
+
+ctx.save();
+
+ctx.translate(
+x,
+y
+);
+
+ctx.shadowColor="#000";
+
+ctx.shadowBlur=18;
+
+
+/* Siyah Fiat Linea */
+
+ctx.fillStyle="#090a0b";
+
+round(
+-w/2,
+0,
+w,
+h,
+12
+);
+
+ctx.fill();
+
+
+/* Cam */
+
+ctx.fillStyle="#20252a";
+
+round(
+-w*.34,
+15,
+w*.68,
+30,
+6
+);
+
+ctx.fill();
+
+
+/* Gövde */
+
+ctx.fillStyle="#080909";
+
+round(
+-w*.42,
+52,
+w*.84,
+45,
+8
+);
+
+ctx.fill();
+
+
+/* Plaka */
+
+ctx.fillStyle="#cfcfcf";
+
+ctx.fillRect(
+-w*.36,
+103,
+w*.18,
+5
+);
+
+ctx.fillRect(
+w*.18,
+103,
+w*.18,
+5
+);
+
+
+/* Stop lambaları */
+
+ctx.fillStyle="#e22";
+
+ctx.fillRect(
+-w*.39,
+88,
+w*.17,
+10
+);
+
+ctx.fillRect(
+w*.22,
+88,
+w*.17,
+10
+);
+
+ctx.restore();
+
+}
+
+
+/* =========================
+   KUTU
+========================= */
+
+function round(
+x,
+y,
+w,
+h,
+r
+){
+
+ctx.beginPath();
+
+ctx.moveTo(
+x+r,
+y
+);
+
+ctx.lineTo(
+x+w-r,
+y
+);
+
+ctx.quadraticCurveTo(
+x+w,
+y,
+x+w,
+y+r
+);
+
+ctx.lineTo(
+x+w,
+y+h-r
+);
+
+ctx.quadraticCurveTo(
+x+w,
+y+h,
+x+w-r,
+y+h
+);
+
+ctx.lineTo(
+x+r,
+y+h
+);
+
+ctx.quadraticCurveTo(
+x,
+y+h,
+x,
+y+h-r
+);
+
+ctx.lineTo(
+x,
+y+r
+);
+
+ctx.quadraticCurveTo(
+x,
+y,
+x+r,
+y
+);
+
+ctx.closePath();
+
+}
+
+
+/* =========================
+   TRAFİK EKLE
+========================= */
+
+function addCar(){
+
+var l=Math.floor(
+Math.random()*4
+);
+
+for(
+var i=0;
+i<cars.length;
+i++
+){
+
+if(
+cars[i].lane===l &&
+cars[i].y<220
+){
+
+return;
+
+}
+
+}
+
+cars.push({
+
+lane:l,
+
+y:-100,
+
+speed:
+30+Math.random()*45,
+
+color:[
+"#ddd",
+"#c33",
+"#39709c",
+"#777",
+"#d09b25"
+][
+Math.floor(
+Math.random()*5
+)
+]
+
+});
+
+}
+
+
+/* =========================
+   TRAFİK ÇİZ
+========================= */
+
+function drawCar(c){
+
+var x=laneX(c.lane);
+
+var w=Math.min(
+60,
+roadWidth()/6
+);
+
+var h=95;
+
+ctx.save();
+
+ctx.translate(
+x,
+c.y
+);
+
+ctx.fillStyle=c.color;
+
+round(
+-w/2,
+-h/2,
+w,
+h,
+9
+);
+
+ctx.fill();
+
+
+ctx.fillStyle="#171b20";
+
+round(
+-w*.31,
+-h*.25,
+w*.62,
+h*.25,
+5
+);
+
+ctx.fill();
+
+
+ctx.fillStyle="#f33";
+
+ctx.fillRect(
+-w*.37,
+h*.25,
+w*.16,
+7
+);
+
+ctx.fillRect(
+w*.21,
+h*.25,
+w*.16,
+7
+);
+
+ctx.restore();
+
+}
+
+
+/* =========================
+   OYUN GÜNCELLE
+========================= */
+
+function update(dt){
+
+speed=Math.min(
+180,
+speed+dt*6
+);
+
+score+=speed*dt;
+
+distance+=speed*dt/3.6;
+
+spawn-=dt;
+
+
+if(spawn<=0){
+
+addCar();
+
+spawn=Math.max(
+.45,
+1-speed/250
+);
+
+}
+
+
+for(
+var i=cars.length-1;
+i>=0;
+i--
+){
+
+var c=cars[i];
+
+c.y+=
+(speed-c.speed)*dt*1.5+
+speed*dt*.5;
+
+
+var px=laneX(lane);
+
+var cx=laneX(c.lane);
+
+
+if(
+Math.abs(px-cx)<48 &&
+Math.abs((H-75)-c.y)<80
+){
+
+endGame();
+
+return;
+
+}
+
+
+if(
+c.y>H+120
+){
+
+cars.splice(
+i,
+1
+);
+
+}
+
+}
+
+
+document.getElementById(
+"score"
+).textContent=
+Math.floor(score);
+
+document.getElementById(
+"dist"
+).textContent=
+Math.floor(distance)+" m";
+
+document.getElementById(
+"speed"
+).textContent=
+Math.floor(speed);
+
+}
+
+
+/* =========================
+   OYUN DÖNGÜSÜ
+========================= */
+
+function gameLoop(now){
+
+if(!running){
+
+return;
+
+}
+
+var dt=Math.min(
+.05,
+(now-last)/1000
+);
+
+last=now;
+
+
+if(!paused){
+
+update(dt);
+
+drawRoad();
+
+
+for(
+var i=0;
+i<cars.length;
+i++
+){
+
+drawCar(
+cars[i]
+);
+
+}
+
+
+drawPlayer();
+
+}
+
+
+animationId=
+requestAnimationFrame(
+gameLoop
+);
+
+}
+
+
+/* =========================
+   OYUNU BAŞLAT
+========================= */
+
+function startGame(){
+
+/* Eski animasyonu temizle */
+
+cancelAnimationFrame(
+animationId
+);
+
+
+/* Menü kapanır */
+
+document.getElementById(
+"menu"
+).style.display="none";
+
+document.getElementById(
+"over"
+).style.display="none";
+
+
+/* Oyun arayüzü */
+
+document.getElementById(
+"hud"
+).style.display="flex";
+
+document.getElementById(
+"pause"
+).style.display="block";
+
+document.getElementById(
+"controls"
+).style.display="flex";
+
+
+/* Değerleri sıfırla */
+
+lane=1;
+
+score=0;
+
+distance=0;
+
+speed=45;
+
+cars=[];
+
+spawn=.2;
+
+paused=false;
+
+running=true;
+
+
+/* İlk çizim */
+
+drawRoad();
+
+drawPlayer();
+
+
+/* Başlat */
+
+last=performance.now();
+
+animationId=
+requestAnimationFrame(
+gameLoop
+);
+
+}
+
+
+/* =========================
+   OYUN BİTİŞ
+========================= */
+
+function endGame(){
+
+running=false;
+
+cancelAnimationFrame(
+animationId
+);
+
+
+var finalScore=
+Math.floor(score);
+
+var oldTop=
+getTopScore();
+
+var isNewRecord=false;
+
+
+if(
+finalScore>oldTop
+){
+
+saveTopScore(
+finalScore
+);
+
+isNewRecord=true;
+
+}
+
+
+var top=
+getTopScore();
+
+
+document.getElementById(
+"final"
+).textContent=
+finalScore;
+
+
+document.getElementById(
+"finalTopScore"
+).textContent=
+top;
+
+
+document.getElementById(
+"newRecord"
+).style.display=
+isNewRecord
+?"block"
+:"none";
+
+
+document.getElementById(
+"over"
+).style.display="flex";
+
+document.getElementById(
+"hud"
+).style.display="none";
+
+document.getElementById(
+"pause"
+).style.display="none";
+
+document.getElementById(
+"controls"
+).style.display="none";
+
+}
+
+
+/* =========================
+   ANA MENÜ
+========================= */
+
+function goHome(){
+
+running=false;
+
+cancelAnimationFrame(
+animationId
+);
+
+document.getElementById(
+"over"
+).style.display="none";
+
+document.getElementById(
+"menu"
+).style.display="flex";
+
+updateTopScore();
+
+}
+
+
+/* =========================
+   HAREKET
+========================= */
+
+function move(n){
+
+if(
+!running ||
+paused
+){
+
+return;
+
+}
+
+lane=Math.max(
+0,
+Math.min(
+3,
+lane+n
+)
+);
+
+}
+
+
+/* =========================
+   DURAKLAT
+========================= */
+
+document.getElementById(
+"pause"
+).onclick=function(){
+
+if(!running){
+
+return;
+
+}
+
+paused=!paused;
+
+this.textContent=
+paused
+?"▶"
+:"Ⅱ";
+
+last=performance.now();
+
+};
+
+
+/* =========================
+   SOL / SAĞ
+========================= */
+
+document.getElementById(
+"left"
+).onclick=function(){
+
+move(-1);
+
+};
+
+
+document.getElementById(
+"right"
+).onclick=function(){
+
+move(1);
+
+};
+
+
+/* =========================
+   KLAVYE
+========================= */
+
+window.addEventListener(
+"keydown",
+function(e){
+
+if(
+e.key==="ArrowLeft"
+){
+
+e.preventDefault();
+
+move(-1);
+
+}
+
+
+if(
+e.key==="ArrowRight"
+){
+
+e.preventDefault();
+
+move(1);
+
+}
+
+
+if(
+e.key===" "
+){
+
+e.preventDefault();
+
+document.getElementById(
+"pause"
+).click();
+
+}
+
+});
+
+</script>
+
+</body>
+</html>
